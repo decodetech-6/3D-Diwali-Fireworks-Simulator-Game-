@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Diwali Street — 3D Arcade Lite</title>
+<style>
+#credit{
+  position: fixed;
+  bottom: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffd36a;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 2px 5px #000;
+}
+
+:root{--gold:#ffd36a;--glass:rgba(12,14,35,.76);--line:rgba(255,255,255,.17)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070b20;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+canvas{display:block}#hud{position:fixed;inset:0;pointer-events:none}
+.top{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.panel{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(12px);border-radius:14px;padding:10px 13px;box-shadow:0 8px 28px #0005}
+.brand{font-weight:900;letter-spacing:.09em;color:var(--gold);font-size:14px}.sub{font-size:11px;color:#c6cce4;margin-top:2px}
+#objective{font-size:12px;line-height:1.45;max-width:250px;text-align:right}
+#status{position:absolute;top:86px;left:50%;transform:translateX(-50%);font-size:12px;text-align:center;white-space:nowrap;color:#ffe6a0;text-shadow:0 2px 5px #000}
+.controls{position:absolute;bottom:14px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;pointer-events:auto}
+.group{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end}
+button{border:1px solid #ffffff38;background:linear-gradient(180deg,#333b69e8,#151a3beF);color:white;border-radius:12px;padding:11px 13px;font-weight:750;font-size:12px;box-shadow:0 5px 14px #0006;touch-action:manipulation;cursor:pointer}
+button:active{transform:translateY(2px);filter:brightness(1.25)}button.primary{background:linear-gradient(180deg,#ffbd4a,#db6a28);color:#24130a;border:0}
+button:disabled{opacity:.45}
+#movePad{display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,39px);gap:4px}
+#movePad button{padding:0;font-size:17px;border-radius:10px}
+#movePad .empty{visibility:hidden}
+#toast{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:clamp(22px,5vw,42px);font-weight:1000;text-align:center;text-shadow:0 4px 12px #000;opacity:0;transition:opacity .25s;max-width:90%;pointer-events:none}
+#overlay{position:absolute;inset:0;display:none;place-items:center;background:#050817b8;pointer-events:auto}
+#dialog{max-width:340px;margin:20px;text-align:center;padding:25px;border:1px solid #ffffff30;border-radius:20px;background:#121936ed;box-shadow:0 20px 70px #0009}
+#dialog h1{margin:0 0 8px;color:var(--gold)}#dialog p{color:#d5dbef;font-size:14px;line-height:1.5}
+.help{position:absolute;left:12px;bottom:105px;font-size:10px;color:#cbd3e9a8;text-shadow:0 1px 3px #000}
+@media(max-width:650px){.top{top:8px;left:8px;right:8px}.panel{padding:8px 10px}.brand{font-size:12px}#objective{font-size:10px;max-width:170px}.controls{bottom:9px;left:8px;right:8px}.group{gap:5px}button{padding:10px 9px;font-size:11px}#movePad{grid-template-columns:repeat(3,36px);grid-template-rows:repeat(2,34px)}.help{bottom:95px;left:9px}}
+</style>
+</head>
+<body>
+  <div id="credit">"Made By DecodeTech"</div>
+<div id="hud">
+ <div class="top">
+  <div class="panel"><div class="brand">✦ DIWALI STREET</div><div class="sub">A tiny 3D festival arcade</div></div>
+  <div class="panel" id="objective">Collect the 5 glowing diyas to win.<br>Don't let the prank backfire.</div>
+ </div>
+ <div id="status">WASD / arrows to move · E to light · Space to throw</div>
+ <div id="toast"></div>
+ <div class="help">WASD / arrows: move · E: lights · Space: aloo bomb · R: restart</div>
+ <div class="controls">
+  <div id="movePad">
+   <button class="empty"></button><button data-key="ArrowUp">▲</button><button class="empty"></button>
+   <button data-key="ArrowLeft">◀</button><button data-key="ArrowDown">▼</button><button data-key="ArrowRight">▶</button>
+  </div>
+  <div class="group">
+   <button id="lightBtn">LIGHT UP</button>
+   <button id="anaarBtn">ANAAR</button>
+   <button class="primary" id="bombBtn">ALOO BOMB</button>
+   <button id="restartBtn">RESTART</button>
+  </div>
+ </div>
+</div>
+<div id="overlay"><div id="dialog"><h1 id="endTitle">Game Over</h1><p id="endText"></p><button class="primary" id="playAgain">PLAY AGAIN</button></div></div>
+<script>
+function loadThree(urls, index=0){
+  if(index>=urls.length){
+    document.getElementById('status').textContent='3D library could not load. Internet/CDN access is required.';
+    document.getElementById('status').style.color='#ff9b9b'; return;
+  }
+  const script=document.createElement('script'); script.src=urls[index];
+  script.onload=()=>{ try{ startDiwaliGame(); }catch(err){ console.error(err); document.getElementById('status').textContent='Game error: '+err.message; document.getElementById('status').style.color='#ff9b9b'; } };
+  script.onerror=()=>loadThree(urls,index+1); document.head.appendChild(script);
+}
+function startDiwaliGame(){
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x080d29);scene.fog=new THREE.Fog(0x080d29,24,78);
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,140);
+const renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'low-power',precision:'mediump'});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.0));renderer.shadowMap.enabled=false;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;document.body.appendChild(renderer.domElement);
+const clock=new THREE.Clock();
+scene.add(new THREE.HemisphereLight(0x91a9ff,0x33203b,1.25));
+const moonLight=new THREE.DirectionalLight(0xb8d0ff,1.65);moonLight.position.set(-9,17,8);moonLight.castShadow=false;scene.add(moonLight);
+const warm=new THREE.PointLight(0xffa34a,22,24);warm.position.set(0,5,0);scene.add(warm);
+const mat=(c,rough=.8,metal=0)=>new THREE.MeshStandardMaterial({color:c,roughness:rough,metalness:metal});
+const mats={road:mat(0x20243c),wall:mat(0x9b6148),cream:mat(0xffd7a0),roof:mat(0x63364a),dark:mat(0x241b35),gold:mat(0xffc75a,.35,.45),white:mat(0xf6e9d6),green:mat(0x1b8060),pink:mat(0xe85c91),blue:mat(0x4d86e8)};
+function box(w,h,d,m,x,y,z,parent=scene){let o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+function sphere(r,m,x,y,z,parent=scene,seg=14){let o=new THREE.Mesh(new THREE.SphereGeometry(r,seg,seg),m);o.position.set(x,y,z);o.castShadow=true;parent.add(o);return o}
+function cylinder(rt,rb,h,m,x,y,z,parent=scene,seg=12){let o=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),m);o.position.set(x,y,z);o.castShadow=true;parent.add(o);return o}
+function glow(color,intensity=1){return new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:intensity,roughness:.35})}
+const ground=box(100,.3,100,mats.road,0,-.22,0); 
+// street edges, paving and distant silhouettes
+for(let s of [-1,1]){box(2,.35,70,mat(0x34334b),s*8,-.02,0);for(let z=-30;z<35;z+=4)box(1.7,.04,3,mat(0x46415a),s*8,.18,z)}
+for(let i=0;i<34;i++){let x=(Math.random()-.5)*48,z=-25+Math.random()*56;if(Math.abs(x)<5)continue;let h=3+Math.random()*8;box(2+Math.random()*3,h,2.5,mat([0x202b4b,0x30304f,0x49344c][i%3]),x,h/2-.1,z);for(let y=1;y<h-1;y+=1.5)box(.22,.3,.04,glow([0xffc45c,0x6dcfff,0xff78b8][i%3],.45),x-.4,y,z+1.27)}
+// moon and stars
+const moon=sphere(2.25,glow(0xffedbd,.8),-13,17,-28,scene,32);const moonHalo=sphere(3.15,new THREE.MeshBasicMaterial({color:0x9bbdff,transparent:true,opacity:.09}),-13,17,-28,scene,32);
+for(let i=0;i<65;i++){let x=(Math.random()-.5)*75,y=5+Math.random()*25,z=-35+Math.random()*55;sphere(.035+Math.random()*.035,glow(0xcbdcff,.8),x,y,z,scene,6)}
+// house
+const house=new THREE.Group();scene.add(house);house.position.set(0,0,-9);
+box(9,5.5,6,mats.cream,0,2.75,0,house);
+box(9.5,.25,6.5,mats.dark,0,5.55,0,house);
+const roof=new THREE.Mesh(new THREE.ConeGeometry(6.6,3.2,4),mats.roof);roof.rotation.y=Math.PI/4;roof.position.set(0,7.05,0);roof.castShadow=true;house.add(roof);
+box(1.6,2.8,.18,mats.dark,0,1.4,3.08,house);sphere(.12,mats.gold,.5,1.7,3.2,house);
+for(let x of [-2.8,2.8]){box(1.35,1.7,.2,glow(0x8dd8ff,.35),x,3.4,3.08,house);box(1.55,.12,.25,mats.gold,x,3.4,3.22,house);box(.12,1.9,.25,mats.gold,x,3.4,3.22,house)}
+// porch
+box(5,.35,2,mats.roof,0,.25,4,house);for(let x of [-2,2])cylinder(.13,.17,2,mats.gold,x,1,4.6,house);
+const lightBulbs=[];const diyaMeshes=[];
+for(let i=0;i<28;i++){let t=i/27,x=-4.1+t*8.2;let y=5.2+.25*Math.sin(t*Math.PI*2);let b=sphere(.105,glow([0xff4f82,0xffd45c,0x6de5ff,0x9d7cff][i%4],0),x,y,3.35,house,10);lightBulbs.push(b)}
+for(let x of [-3.3,0,3.3]){let d=cylinder(.24,.32,.12,mats.gold,x,.12,3.9,house);let f=sphere(.13,glow(0xffa42b,1.8),x,.28,3.9,house,10);f.visible=false;diyaMeshes.push(f)}
+let lit=false;
+function setLights(){lit=!lit;lightBulbs.forEach((b,i)=>{b.material=glow([0xff4f82,0xffd45c,0x6de5ff,0x9d7cff][i%4],lit?2.3:0);});diyaMeshes.forEach(d=>d.visible=lit);house.userData.lit=lit;$('lightBtn').textContent=lit?'LIGHTS ON':'LIGHT UP';sound(620,.09,'sine',.035)}
+// rangoli
+for(let i=0;i<3;i++){let ring=new THREE.Mesh(new THREE.TorusGeometry(1.1+i*.35,.035,6,48),new THREE.MeshBasicMaterial({color:[0xff6b9d,0x65d9ff,0xffd66b][i]}));ring.rotation.x=-Math.PI/2;ring.position.set(0,.02,4.4);scene.add(ring)}
+// lamps along street
+for(let s of [-1,1])for(let z=-17;z<18;z+=7){cylinder(.12,.18,3,mat(0x49344b),s*7,1.5,z);sphere(.38,glow(0xffb957,1.3),s*7,3.25,z);let l=new THREE.PointLight(0xffad56,2,7);l.position.set(s*7,3.2,z);scene.add(l)}
+// player
+const player=new THREE.Group();scene.add(player);player.position.set(0,0,9);
+const body=box(.72,1,.42,mat(0x3978d5),0,1,0,player);sphere(.34,mat(0x9a5f3c),0,1.72,0,player);sphere(.13,mat(0x171728),0,2.02,0,player);box(.75,.13,.45,mat(0xffc64d),0,1.48,0,player);
+const legs=[];for(let x of [-.2,.2])legs.push(box(.22,.62,.25,mat(0x29314d),x,.32,0,player));
+const playerShadow=new THREE.Mesh(new THREE.CircleGeometry(.55,18),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.3}));playerShadow.rotation.x=-Math.PI/2;playerShadow.position.y=.015;player.add(playerShadow);
+let playerDown=false,playerSpeed=0,keys={};let collected=0,ended=false,scoreTarget=5;
+let audioCtx=null, noiseBuffer=null;
+function getAudio(){if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;audioCtx=new AC();const len=Math.floor(audioCtx.sampleRate*.45);noiseBuffer=audioCtx.createBuffer(1,len,audioCtx.sampleRate);const data=noiseBuffer.getChannelData(0);for(let i=0;i<len;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/len,1.8)}if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx}
+// Mobile browsers require audio to be unlocked by a real touch/click.
+function unlockAudio(){try{const c=getAudio();if(c){const o=c.createOscillator(),g=c.createGain();g.gain.value=.0001;o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+.015)}}catch(e){}}
+window.addEventListener('pointerdown',unlockAudio,{once:true});
+function sound(freq=440,dur=.12,type='sine',vol=.04){try{let ctx=getAudio();if(!ctx)return;let o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(40,freq*.45),ctx.currentTime+dur);g.gain.setValueAtTime(vol,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+dur)}catch(e){}}
+function noiseBurst(dur=.22,vol=.12,filterFreq=1500){try{const c=getAudio();if(!c||!noiseBuffer)return;const src=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();src.buffer=noiseBuffer;f.type='lowpass';f.frequency.value=filterFreq;g.gain.setValueAtTime(vol,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);src.connect(f);f.connect(g);g.connect(c.destination);src.start();src.stop(c.currentTime+dur)}catch(e){}}
+function noisePop(){noiseBurst(.28,.2,1100);sound(105,.28,'sawtooth',.075);sound(720,.1,'triangle',.035)}
+function anaarSfx(){sound(95,.42,'sawtooth',.045);for(let i=0;i<5;i++)setTimeout(()=>{noiseBurst(.09,.075,2800);sound(500+Math.random()*900,.08,'square',.018)},i*115)}
+function throwSfx(){sound(310,.12,'square',.035);sound(180,.24,'sawtooth',.025)}
+function slapSfx(){noiseBurst(.12,.25,800);sound(170,.19,'triangle',.08);sound(85,.2,'sawtooth',.045)}
+// NPCs
+const npcs=[];const npcColors=[0xe66c86,0x59a7a0,0xd59b4b,0x8170d7,0x65a5d9];
+function makeNPC(x,z){let g=new THREE.Group();scene.add(g);g.position.set(x,0,z);let c=mat(npcColors[npcs.length%npcColors.length]);box(.62,.95,.38,c,0,.95,0,g);sphere(.3,mat(0x9c6747),0,1.62,0,g);sphere(.12,mat(0x252035),0,1.88,0,g);let arms=[];for(let s of [-1,1])arms.push(box(.17,.68,.18,c,s*.4,1.05,0,g));let legs=[];for(let s of [-1,1])legs.push(box(.2,.58,.2,mat(0x30334b),s*.17,.3,0,g));npcs.push({g,arms,legs,dir:Math.random()*6.28,speed:.5+Math.random()*.45,angry:false,run:false,hit:false,phase:Math.random()*5})}
+for(let i=0;i<7;i++)makeNPC((Math.random()-.5)*13, -2+Math.random()*17);
+// collectibles
+const pickups=[];
+for(let i=0;i<scoreTarget;i++){let g=new THREE.Group();scene.add(g);let x=(Math.random()-.5)*12,z=-1+Math.random()*15;g.position.set(x,.45,z);let bowl=cylinder(.18,.25,.12,mat(0xffbd4d),0,0,0,g);let flame=sphere(.13,glow(0xff9e35,2),0,.22,0,g);let halo=new THREE.Mesh(new THREE.TorusGeometry(.32,.025,5,24),new THREE.MeshBasicMaterial({color:0xffd36a}));halo.rotation.x=Math.PI/2;halo.position.y=.1;g.add(halo);pickups.push({g,baseY:.45,taken:false})}
+// particles
+const particles=[];function burst(pos,color,count=24,power=4,size=.09,gravity=4){count=Math.min(count,24);if(particles.length>170)count=Math.max(0,170-particles.length);for(let i=0;i<count;i++){let m=new THREE.Mesh(new THREE.SphereGeometry(size*(.5+Math.random()),6,6),new THREE.MeshBasicMaterial({color,transparent:true}));m.position.copy(pos);scene.add(m);let v=new THREE.Vector3((Math.random()-.5)*power,(Math.random()*.9+.2)*power,(Math.random()-.5)*power);particles.push({m,v,life:.7+Math.random()*.65,max:1.35,gravity})}}
+function toast(t){$('toast').textContent=t;$('toast').style.opacity=1;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').style.opacity=0,1450)}
+// anaar fountain
+let fountains=[];function anaar(){if(ended)return;let f={x:player.position.x,z:player.position.z-1,age:0,done:false,next:0};fountains.push(f);anaarSfx();toast('ANAAR!');}
+function updateFountains(dt){for(let f of fountains){f.age+=dt;if(f.age<2.5){f.next-=dt;if(f.next<=0){f.next=.075;for(let n=0;n<2;n++){let p=new THREE.Vector3(f.x+(Math.random()-.5)*.25,.35+Math.random()*2.5,f.z+(Math.random()-.5)*.25);burst(p,[0xffcf4d,0xff4e9b,0x5be8ff,0x9c76ff][Math.floor(Math.random()*4)],1,1.7,.055,2)}}}}fountains=fountains.filter(f=>f.age<2.6)}
+// fictional cartoon firework
+let bombs=[];function throwBomb(){if(ended||playerDown)return;let dir=new THREE.Vector3(Math.sin(player.rotation.y),0,Math.cos(player.rotation.y));let mesh=sphere(.28,glow(0xff653f,1.5),player.position.x,1.15,player.position.z,scene,12);let fuse=sphere(.09,glow(0xffe36a,2),0,.25,0,mesh,8);let v=dir.multiplyScalar(10);v.y=3.6;bombs.push({mesh,v,age:0});throwSfx()}
+function explode(pos){noisePop();burst(pos,0xffc84e,42,7,.13,5);burst(pos,0xff4f9a,26,6,.1,4);burst(pos,0x62dcff,26,6,.1,4);
+ // harmless cartoon smoke puffs
+ for(let i=0;i<10;i++){let p=pos.clone().add(new THREE.Vector3((Math.random()-.5)*2,Math.random()*2,(Math.random()-.5)*2));let m=sphere(.35+Math.random()*.35,new THREE.MeshBasicMaterial({color:[0xff8a48,0xffd36a,0xc78cff][i%3],transparent:true,opacity:.75}),p.x,p.y,p.z,scene,10);particles.push({m,v:new THREE.Vector3((Math.random()-.5)*2,1+Math.random()*2,(Math.random()-.5)*2),life:1.1,max:1.1,gravity:-.5,scale:true})}
+ // NPC reaction
+ let hit=false;for(let n of npcs){if(n.g.position.distanceTo(pos)<2.5&&!n.hit){n.angry=true;n.run=true;hit=true}}
+ if(hit)toast('Uh-oh. Someone got pranked!');
+}
+let houseExploded=false;
+function explodeHouse(){if(houseExploded||ended)return;houseExploded=true;noisePop();toast('HOUSE BLAST!');let origin=house.position.clone().add(new THREE.Vector3(0,4,0));burst(origin,0xffc94e,100,13,.18,4);burst(origin,0xff5d9e,70,11,.15,3);house.visible=false;
+ // stylized house fragments fly upward toward the moon
+ for(let i=0;i<18;i++){let p=box(.45+Math.random()*.8,.35+Math.random()*.9,.4+Math.random()*.7,[mats.cream,mats.roof,mats.gold,mats.blue][i%4],(Math.random()-.5)*8,1+Math.random()*5,-9+(Math.random()-.5)*5);p.position.y+=2;let vel=new THREE.Vector3(-3+Math.random()*5,8+Math.random()*7,-5-Math.random()*5);particles.push({m:p,v:vel,life:3,max:3,gravity:-.5,rotate:true})}
+ setTimeout(()=>finish(false,'The house got caught in your cartoon chaos. The street needs rebuilding.'),2200);
+}
+function finish(win,msg){if(ended)return;ended=true;$('endTitle').textContent=win?'YOU WIN!':'GAME OVER';$('endText').textContent=msg;$('overlay').style.display='grid';}
+function slap(n){if(ended||playerDown)return;playerDown=true;toast('SLAP! BONK!');slapSfx();player.rotation.z=1.35;player.position.y=.18;burst(player.position.clone().add(new THREE.Vector3(0,1.6,0)),0xffe36a,14,3,.09,2);setTimeout(()=>finish(false,'A prank NPC caught you. Try keeping your distance.'),950)}
+function updateBombs(dt){for(let b of bombs){b.age+=dt;b.v.y-=6*dt;b.mesh.position.addScaledVector(b.v,dt);b.mesh.rotation.x+=dt*5;b.mesh.rotation.z+=dt*4;
+ if(b.mesh.position.y<.35){explode(b.mesh.position.clone());scene.remove(b.mesh);b.dead=true;continue}
+ // house collision volume
+ if(!houseExploded&&b.mesh.position.z<-5.4&&b.mesh.position.z>-13&&Math.abs(b.mesh.position.x)<5&&b.mesh.position.y<9){scene.remove(b.mesh);b.dead=true;explodeHouse();continue}
+ for(let n of npcs){if(!n.hit&&n.g.position.distanceTo(b.mesh.position)<1.25){n.hit=true;n.angry=true;n.run=true;explode(b.mesh.position.clone());scene.remove(b.mesh);b.dead=true;break}}
+ }bombs=bombs.filter(b=>!b.dead)}
+function updateNPCs(dt,t){for(let n of npcs){let p=n.g.position;if(n.run){let dx=player.position.x-p.x,dz=player.position.z-p.z,d=Math.hypot(dx,dz)||1;n.dir=Math.atan2(dx,dz);p.x+=dx/d*dt*3.5;p.z+=dz/d*dt*3.5;n.g.rotation.y=n.dir;if(d<1.3)slap(n)}else{n.dir+=Math.sin(t*.45+n.phase)*dt*.28;p.x+=Math.sin(n.dir)*n.speed*dt;p.z+=Math.cos(n.dir)*n.speed*dt;if(p.x>7||p.x< -7)n.dir=-n.dir;if(p.z>18||p.z< -17)n.dir+=Math.PI;n.g.rotation.y=n.dir}
+ n.legs.forEach((l,i)=>l.rotation.x=Math.sin(t*6+n.phase+i*Math.PI)*.45*(n.run?1.7:1));n.arms.forEach((a,i)=>a.rotation.x=Math.sin(t*6+n.phase+i*Math.PI)*.25+(n.run?-.5:0))}}
+function updatePlayer(dt,t){if(playerDown||ended)return;let x=(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0),z=(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0);let v=new THREE.Vector3(x,0,z);if(v.lengthSq()>0){v.normalize();player.position.addScaledVector(v,dt*5.4);player.rotation.y=Math.atan2(v.x,v.z);legs.forEach((l,i)=>l.rotation.x=Math.sin(t*11+i*Math.PI)*.65)}else legs.forEach(l=>l.rotation.x*=.8);
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-8,8);player.position.z=THREE.MathUtils.clamp(player.position.z,-19,19);
+ for(let p of pickups){if(!p.taken){p.g.rotation.y+=dt*1.5;p.g.position.y=p.baseY+Math.sin(t*3+p.g.position.x)*.12;if(p.g.position.distanceTo(new THREE.Vector3(player.position.x,.45,player.position.z))<.95){p.taken=true;p.g.visible=false;collected++;sound(780,.12,'sine',.06);toast('DIYA COLLECTED '+collected+'/'+scoreTarget);$('objective').innerHTML=`Diyas: ${collected}/${scoreTarget}<br>Find the remaining glowing diyas.`;if(collected>=scoreTarget)finish(true,'You collected every diya and lit up the street. Shubh Diwali!')}}}}
+function reset(){ended=false;playerDown=false;houseExploded=false;house.visible=true;player.position.set(0,0,9);player.rotation.set(0,0,0);lit=false;lightBulbs.forEach(b=>b.material=glow(0xff4f82,0));diyaMeshes.forEach(d=>d.visible=false);$('lightBtn').textContent='LIGHT UP';collected=0;pickups.forEach(p=>{p.taken=false;p.g.visible=true});npcs.forEach((n,i)=>{n.g.position.set((Math.random()-.5)*13,-0+0,-2+Math.random()*17);n.run=false;n.angry=false;n.hit=false});bombs.forEach(b=>scene.remove(b.mesh));bombs=[];fountains=[];particles.forEach(p=>scene.remove(p.m));particles.length=0;$('objective').innerHTML='Collect the 5 glowing diyas to win.<br>Don\'t let the prank backfire.';$('overlay').style.display='none';toast('READY? GO!')}
+$('lightBtn').onclick=setLights;$('anaarBtn').onclick=anaar;$('bombBtn').onclick=throwBomb;$('restartBtn').onclick=reset;$('playAgain').onclick=reset;
+window.addEventListener('keydown',e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();keys[k]=true;if(k==='e')setLights();if(k===' ')throwBomb();if(k==='r'||k==='R')reset()});
+window.addEventListener('keyup',e=>{let k=e.key.length===1?e.key.toLowerCase():e.key;keys[k]=false});
+document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;b.setPointerCapture(e.pointerId)});['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});
+let camTarget=new THREE.Vector3();
+function animate(){requestAnimationFrame(animate);let dt=Math.min(clock.getDelta(),.035),t=clock.elapsedTime;
+ updatePlayer(dt,t);updateNPCs(dt,t);updateFountains(dt);updateBombs(dt);
+ for(let p of particles){p.life-=dt;p.v.y-=p.gravity*dt;p.m.position.addScaledVector(p.v,dt);if(p.rotate){p.m.rotation.x+=dt*2;p.m.rotation.z+=dt*3}if(p.scale){p.m.scale.multiplyScalar(1+dt*.45);p.m.material.opacity=Math.max(0,p.life/p.max*.75)}else if(p.m.material.transparent)p.m.material.opacity=Math.max(0,p.life/p.max)}
+ for(let i=particles.length-1;i>=0;i--)if(particles[i].life<=0){scene.remove(particles[i].m);particles.splice(i,1)}
+ camTarget.set(player.position.x*.38,3.2,player.position.z+8.5);camera.position.lerp(new THREE.Vector3(player.position.x*.55,9.5,player.position.z+17),1-Math.pow(.001,dt));camera.lookAt(camTarget);
+ warm.position.x=Math.sin(t*.5)*2;renderer.render(scene,camera)}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.0))});
+})();
+}
+loadThree(['https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js','https://unpkg.com/three@0.160.0/build/three.min.js','https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js']);
+</script>
+</body></html>
